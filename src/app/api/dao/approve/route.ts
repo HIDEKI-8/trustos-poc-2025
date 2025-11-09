@@ -1,39 +1,40 @@
 // src/app/api/dao/approve/route.ts
-import { NextResponse } from 'next/server'
-import { verifyMessage } from 'viem'
+import { NextResponse } from 'next/server';
 
-export async function POST(req: Request) {
-  try {
-    const { address, proposalId, message, signature } = await req.json()
-
-    if (!address || !proposalId || !message || !signature) {
-      return NextResponse.json(
-        { ok: false, error: 'Missing fields' },
-        { status: 400 },
-      )
-    }
-
-    // 署名が本当に address のものか検証
-    const ok = await verifyMessage({
-      address,
-      message,
-      signature,
-    })
-
-    if (!ok) {
-      return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 401 })
-    }
-
-    // （必要ならここでDB保存・二重投票チェック・レート制限など）
-    // 例:
-    // await saveApproval({ address, proposalId, signature, message })
-
-    return NextResponse.json({ ok: true })
-  } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: e?.message ?? 'Unknown error' },
-      { status: 500 },
-    )
-  }
+interface ApproveBody {
+  address?: string;
+  score: number;
 }
 
+interface DaoVotes {
+  yes: number;
+  no: number;
+  quorum: number;
+}
+
+interface DaoApproveResponse {
+  approved: boolean;
+  txHash: string;
+  votes: DaoVotes;
+}
+
+export async function POST(req: Request) {
+  const { address, score } = (await req.json()) as ApproveBody;
+
+  // モック判定（例: 60点以上は承認）
+  const approved = typeof score === 'number' ? score >= 60 : false;
+
+  const votes: DaoVotes = {
+    yes: approved ? 128 : 49,
+    no: approved ? 12 : 73,
+    quorum: 100,
+  };
+
+  const res: DaoApproveResponse = {
+    approved,
+    txHash: '0xmock_tx_hash_abcdef1234567890',
+    votes,
+  };
+
+  return NextResponse.json(res);
+}

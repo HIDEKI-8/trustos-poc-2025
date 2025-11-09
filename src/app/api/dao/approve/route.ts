@@ -1,33 +1,39 @@
-import { NextResponse } from 'next/server';
-
-function randomHex(len = 64) {
-  const chars = '0123456789abcdef';
-  let out = '0x';
-  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
-  return out;
-}
+// src/app/api/dao/approve/route.ts
+import { NextResponse } from 'next/server'
+import { verifyMessage } from 'viem'
 
 export async function POST(req: Request) {
   try {
-    const { address = '', score = 0 } = await req.json().catch(() => ({}));
+    const { address, proposalId, message, signature } = await req.json()
 
-    // 投票をモック（スコアが高いほど YES が増えやすい）
-    const baseYes = Math.max(1, Math.floor((Number(score) || 0) / 10)); // 0〜10台 → 0〜9票ベース
-    const noiseYes = Math.floor(Math.random() * 5); // 0〜4
-    const yes = baseYes + noiseYes + 5; // 少し底上げ（見栄え）
-    const no = Math.floor(Math.random() * 4); // 0〜3
-    const quorum = yes + no + Math.floor(Math.random() * 5); // 見栄え用
+    if (!address || !proposalId || !message || !signature) {
+      return NextResponse.json(
+        { ok: false, error: 'Missing fields' },
+        { status: 400 },
+      )
+    }
 
-    const approved = yes > no && Number(score) >= 60;
-    const txHash = randomHex(64);
+    // 署名が本当に address のものか検証
+    const ok = await verifyMessage({
+      address,
+      message,
+      signature,
+    })
 
-    return NextResponse.json({
-      approved,
-      txHash,
-      votes: { yes, no, quorum },
-    });
-  } catch {
-    return NextResponse.json({ error: 'bad request' }, { status: 400 });
+    if (!ok) {
+      return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 401 })
+    }
+
+    // （必要ならここでDB保存・二重投票チェック・レート制限など）
+    // 例:
+    // await saveApproval({ address, proposalId, signature, message })
+
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: e?.message ?? 'Unknown error' },
+      { status: 500 },
+    )
   }
 }
 

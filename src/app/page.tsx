@@ -1,176 +1,262 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { injected, walletConnect } from 'wagmi/connectors';
 
-const isMobileUA = () =>
-  typeof navigator !== 'undefined' &&
-  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-export default function Page() {
+export default function Home() {
+  // Wagmi hooks
   const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending, error, status } = useConnect();
+  const { connect, connectors, error: connectError, isPending } = useConnect();
   const { disconnect } = useDisconnect();
 
-  // WalletConnect コネクタを取得
-  const wcConnector = useMemo(
+  // UI states
+  const [statusMsg, setStatusMsg] = useState<string>('');
+  const [score, setScore] = useState<number | null>(null);
+  const [scoreMsg, setScoreMsg] = useState<string>('');
+  const [daoMsg, setDaoMsg] = useState<string>('');
+  const [busy, setBusy] = useState<boolean>(false);
+
+  // 画面幅でボタン等を少し大きめに
+  const isMobile = useMemo(
     () =>
-      connectors.find(
-        (c) =>
-          c.id?.toLowerCase().includes('walletconnect') ||
-          c.name === 'WalletConnect'
-      ),
-    [connectors]
+      typeof window !== 'undefined' &&
+      /Mobi|Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent),
+    []
   );
 
-  // 自動接続は1回だけ
-  const triedRef = useRef(false);
-
+  // ❶ スマホ自動検出 → 初回のみ WalletConnect モーダルを自動オープン
   useEffect(() => {
-    if (triedRef.current) return;
-    if (!isConnected && isMobileUA() && wcConnector) {
-      triedRef.current = true;
-      connect({ connector: wcConnector });
+    if (!isMobile || isConnected) return;
+
+    // セッション中は1回だけ自動起動
+    const flagKey = 'wcAutolaunched';
+    const already = sessionStorage.getItem(flagKey);
+    if (already) return;
+
+    const wc = connectors.find((c) =>
+      /walletconnect/i.test(c.id) || /walletconnect/i.test(c.name)
+    );
+    if (wc) {
+      // WalletConnect 側の Project ID は providers.tsx / 環境変数で設定済み前提
+      connect({ connector: wc }).finally(() => {
+        sessionStorage.setItem(flagKey, '1');
+      });
     }
-  }, [isConnected, wcConnector, connect]);
+  }, [isMobile, isConnected, connectors, connect]);
+
+  // ❷ ウォレット接続ハンドラ
+  const handleConnectInjected = async () => {
+    setStatusMsg('');
+    try {
+      const inj =
+        connectors.find((c) => /injected/i.test(c.id)) ||
+        injected(); // 念のためフォールバック
+      await connect({ connector: inj });
+    } catch (e: any) {
+      setStatusMsg(`Connect error: ${e?.message ?? String(e)}`);
+    }
+  };
+
+  const handleConnectWC = async () => {
+    setStatusMsg('');
+    try {
+      const wc =
+        connectors.find((c) => /walletconnect/i.test(c.id)) ||
+        walletConnect({ projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID! });
+      await connect({ connector: wc });
+    } catch (e: any) {
+      setStatusMsg(`Connect error: ${e?.message ?? String(e)}`);
+    }
+  };
+
+  // ❸ AIスコア（モック）: 画面内に結果を表示
+  const handleGenerateScore = async () => {
+    setScoreMsg('');
+    setDaoMsg('');
+    setBusy(true);
+    try {
+      // モック: 1.5秒後に 600〜900 のスコアを生成
+      await new Promise((r) => setTimeout(r, 1500));
+      const v = Math.floor(600 + Math.random() * 300);
+      setScore(v);
+      setScoreMsg('AI score generated successfully.');
+    } catch (e: any) {
+      setScoreMsg(`Score error: ${e?.message ?? String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ❹ DAO 承認申請（モック）
+  const handleSubmitDAO = async () => {
+    setDaoMsg('');
+    if (!isConnected) {
+      setDaoMsg('Please connect your wallet first.');
+      return;
+    }
+    setBusy(true);
+    try {
+      // モック: 1.2秒後に“投票受付”を完了
+      await new Promise((r) => setTimeout(r, 1200));
+      const fakeTx = `0x${crypto
+        .getRandomValues(new Uint8Array(8))
+        .reduce((s, b) => s + b.toString(16).padStart(2, '0'), '')}`;
+      setDaoMsg(`Submitted to DAO (mock). Tx: ${fakeTx}`);
+    } catch (e: any) {
+      setDaoMsg(`DAO error: ${e?.message ?? String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <main
       style={{
-        maxWidth: 960,
-        margin: '0 auto',
-        padding: '48px 16px',
-        color: '#d8f3f3',
+        minHeight: '100vh',
+        background: '#0b1520',
+        color: '#e8f1f8',
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        padding: 24,
       }}
     >
-      <h1 style={{ textAlign: 'center', marginBottom: 24 }}>TRUST OS PoC</h1>
-
-      {/* Connect セクション */}
-      {!isConnected ? (
-        <section
+      <div style={{ width: '100%', maxWidth: 720 }}>
+        <h1
           style={{
-            border: '1px solid #224',
-            borderRadius: 12,
-            padding: 16,
-            marginBottom: 24,
-            background: 'rgba(0,0,0,0.3)',
+            textAlign: 'center',
+            fontSize: 22,
+            fontWeight: 700,
+            letterSpacing: 1,
+            opacity: 0.9,
+            marginBottom: 18,
           }}
         >
-          <h3 style={{ textAlign: 'center', marginBottom: 12 }}>
-            Connect your wallet / ウォレットを接続
-          </h3>
+          TRUST OS PoC
+        </h1>
 
+        {/* Wallet section */}
+        <section
+          style={{
+            border: '1px solid rgba(255,255,255,.15)',
+            borderRadius: 14,
+            padding: 16,
+            marginBottom: 18,
+            background: 'rgba(255,255,255,.04)',
+          }}
+        >
+          <h2 style={{ fontSize: 16, margin: '0 0 12px' }}>
+            Connect your wallet / ウォレットを接続
+          </h2>
           <div
             style={{
               display: 'flex',
               gap: 12,
               flexWrap: 'wrap',
-              justifyContent: 'center',
+              marginBottom: 8,
             }}
           >
-            {/* Injected (MetaMask拡張 or アプリ内ブラウザ) */}
-            {connectors
-              .filter((c) => c.id.toLowerCase().includes('injected'))
-              .map((c) => (
-                <button
-                  key={c.id}
-                  disabled={isPending}
-                  onClick={() => connect({ connector: c })}
-                  style={btnStyle()}
-                >
-                  Connect Injected
-                </button>
-              ))}
+            <button
+              onClick={handleConnectInjected}
+              disabled={isPending}
+              style={btnStyle}
+            >
+              {isPending ? 'Connecting…' : 'Connect Injected'}
+            </button>
 
-            {/* WalletConnect（スマホはアプリ遷移 / PCはQR） */}
-            {wcConnector && (
-              <button
-                disabled={isPending}
-                onClick={() => connect({ connector: wcConnector })}
-                style={btnStyle()}
-              >
-                Connect WalletConnect
-              </button>
+            <button
+              onClick={handleConnectWC}
+              disabled={isPending}
+              style={btnStyle}
+            >
+              {isPending ? 'Connecting…' : 'Connect WalletConnect'}
+            </button>
+          </div>
+
+          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
+            Status:{' '}
+            {isConnected ? (
+              <span style={{ color: '#7dffbc' }}>
+                connected ({short(address)})
+              </span>
+            ) : (
+              <span style={{ color: '#ffb2b2' }}>disconnected</span>
             )}
           </div>
 
-          <div style={{ textAlign: 'center', marginTop: 12, minHeight: 22 }}>
-            {isPending && <span>Connecting...</span>}
-            {status === 'error' && (
-              <span style={{ color: 'salmon' }}>{String(error?.message || 'Error')}</span>
-            )}
-          </div>
+          {connectError && (
+            <div style={{ color: '#ff8f8f', marginTop: 6, fontSize: 13 }}>
+              {connectError.message}
+            </div>
+          )}
+          {statusMsg && (
+            <div style={{ color: '#ff8f8f', marginTop: 4, fontSize: 13 }}>
+              {statusMsg}
+            </div>
+          )}
         </section>
-      ) : (
-        <section
-          style={{
-            border: '1px solid #224',
-            borderRadius: 12,
-            padding: 16,
-            marginBottom: 24,
-            background: 'rgba(0,0,0,0.3)',
-          }}
-        >
-          <div style={{ marginBottom: 8 }}>
-            <strong>Connected:</strong> {address}
-          </div>
-          <button onClick={() => disconnect()} style={btnStyle()}>
-            Disconnect
+
+        {/* AI Score */}
+        <section style={cardStyle}>
+          <h3 style={cardTitle}>AI Analysis → Trust Score</h3>
+          <button onClick={handleGenerateScore} disabled={busy} style={btnStyle}>
+            {busy ? 'Generating…' : 'Generate Trust Score'}
           </button>
+          <div style={{ marginTop: 10, fontSize: 14 }}>
+            {score !== null && (
+              <div>
+                <strong>Score:</strong>{' '}
+                <span style={{ color: '#7dffbc' }}>{score}</span>
+              </div>
+            )}
+            {scoreMsg && <div style={{ opacity: 0.85 }}>{scoreMsg}</div>}
+          </div>
         </section>
-      )}
 
-      {/* AI → Trust Score（ダミー） */}
-      <section
-        style={{
-          border: '1px solid #224',
-          borderRadius: 12,
-          padding: 16,
-          marginBottom: 24,
-          background: 'rgba(0,0,0,0.3)',
-        }}
-      >
-        <h3>AI Analysis → Trust Score</h3>
-        <button
-          onClick={() => alert('Trust score generated (mock).')}
-          style={btnStyle()}
-        >
-          Generate Trust Score
-        </button>
-      </section>
-
-      {/* DAO 承認（モック） */}
-      <section
-        style={{
-          border: '1px solid #224',
-          borderRadius: 12,
-          padding: 16,
-          background: 'rgba(0,0,0,0.3)',
-        }}
-      >
-        <h3>DAO Approval (Mock)</h3>
-        <p style={{ marginTop: 4 }}>
-          Community votes to verify your trust score / DAO投票でスコア承認
-        </p>
-        <button
-          onClick={() => alert('Submitted to DAO (mock).')}
-          style={btnStyle()}
-        >
-          Submit to DAO / 承認申請
-        </button>
-      </section>
+        {/* DAO Approval */}
+        <section style={cardStyle}>
+          <h3 style={cardTitle}>DAO Approval (Mock)</h3>
+          <p style={{ marginTop: 0, opacity: 0.85 }}>
+            Community votes to verify your trust score / DAO投票でスコア承認
+          </p>
+          <button onClick={handleSubmitDAO} disabled={busy} style={btnStyle}>
+            {busy ? 'Submitting…' : 'Submit to DAO / 承認申請'}
+          </button>
+          {daoMsg && (
+            <div style={{ marginTop: 10, fontSize: 14, opacity: 0.9 }}>
+              {daoMsg}
+            </div>
+          )}
+        </section>
+      </div>
     </main>
   );
 }
 
-function btnStyle(): React.CSSProperties {
-  return {
-    padding: '12px 18px',
-    borderRadius: 10,
-    border: '1px solid #22b8b8',
-    background: '#1dd3c0',
-    color: '#063',
-    fontWeight: 700,
-    cursor: 'pointer',
-  };
+/* ---------- helpers & styles ---------- */
+
+function short(addr?: `0x${string}` | string) {
+  if (!addr) return '';
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
+
+const btnStyle: React.CSSProperties = {
+  padding: '12px 18px',
+  borderRadius: 10,
+  border: '1px solid rgba(255,255,255,.2)',
+  background: '#19d3b6',
+  color: '#0b1520',
+  fontWeight: 700,
+  cursor: 'pointer',
+};
+
+const cardStyle: React.CSSProperties = {
+  border: '1px solid rgba(255,255,255,.15)',
+  borderRadius: 14,
+  padding: 16,
+  marginBottom: 18,
+  background: 'rgba(255,255,255,.04)',
+};
+
+const cardTitle: React.CSSProperties = { fontSize: 16, margin: '0 0 8px' };

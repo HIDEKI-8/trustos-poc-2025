@@ -7,27 +7,24 @@ import { injected, walletConnect } from 'wagmi/connectors';
 
 const queryClient = new QueryClient();
 
-// WalletConnect の Project ID（未取得なら仮でOK。あとで Vercel の環境変数に入れます）
-const WALLET_CONNECT_PROJECT_ID =
-  process.env.NEXT_PUBLIC_WC_PROJECT_ID || 'your_project_id_here';
-
 const config = createConfig({
   chains: [polygon],
-  connectors: [
-    injected(),
-    walletConnect({
-      projectId: WALLET_CONNECT_PROJECT_ID,
-      metadata: {
-        name: 'TrustOS PoC',
-        description: 'TrustOS Proof of Concept',
-        url: 'https://trustos-poc-2025.vercel.app',
-        icons: ['https://trustos-poc-2025.vercel.app/favicon.ico'],
-      },
-    }),
-  ],
   transports: {
     [polygon.id]: http(process.env.NEXT_PUBLIC_RPC_URL || 'https://polygon-rpc.com'),
   },
+  connectors: [
+    injected({ shimDisconnect: true }),
+    walletConnect({
+      projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID!, // ← 必須
+      showQrModal: true, // PCはQR、スマホはアプリ遷移
+      metadata: {
+        name: 'TrustOS PoC',
+        description: 'WalletConnect for TrustOS',
+        url: 'https://example.com', // 任意
+        icons: ['https://walletconnect.com/walletconnect-logo.png'],
+      },
+    }),
+  ],
   ssr: true,
 });
 

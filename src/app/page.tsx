@@ -1,5 +1,5 @@
 'use client';
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { injected, walletConnect } from 'wagmi/connectors';

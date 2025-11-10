@@ -1,41 +1,28 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/app/api/dao/approve/route.ts
 import { NextResponse } from 'next/server';
 
-interface ApproveBody {
-  address?: string;
-  score: number;
-}
-
-interface DaoVotes {
+type DaoVote = {
   yes: number;
   no: number;
   quorum: number;
-}
+};
 
-interface DaoApproveResponse {
+type DaoApproveResponse = {
   approved: boolean;
   txHash: string;
-  votes: DaoVotes;
-}
+  votes: DaoVote;
+};
 
 export async function POST(req: Request) {
-  const { address, score } = (await req.json()) as ApproveBody;
+  // 使っていないなら一旦受けるだけ
+  const _body = await req.json().catch(() => ({}));
 
-  // モック判定（例: 60点以上は承認）
-  const approved = typeof score === 'number' ? score >= 60 : false;
-
-  const votes: DaoVotes = {
-    yes: approved ? 128 : 49,
-    no: approved ? 12 : 73,
-    quorum: 100,
+  // モックの返却
+  const data: DaoApproveResponse = {
+    approved: true,
+    txHash: '0x' + 'deadbeef'.repeat(8),
+    votes: { yes: 42, no: 5, quorum: 30 },
   };
 
-  const res: DaoApproveResponse = {
-    approved,
-    txHash: '0xmock_tx_hash_abcdef1234567890',
-    votes,
-  };
-
-  return NextResponse.json(res);
+  return NextResponse.json(data);
 }

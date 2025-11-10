@@ -36,6 +36,32 @@ export default function Home() {
     [connectors]
   );
 
+  {/* Reset sessionStorage for mobile Safari */}
+<div style={{ marginTop: 8 }}>
+  <button
+    style={{
+      background: 'transparent',
+      border: '1px dashed rgba(255,255,255,.4)',
+      color: 'rgba(255,255,255,.8)',
+      padding: '8px 12px',
+      borderRadius: 8,
+      cursor: 'pointer',
+    }}
+    onClick={() => {
+      try {
+        sessionStorage.removeItem('wc_auto_opened');
+        localStorage.removeItem('wc_auto_opened');
+        alert('✅ Reset complete! Please reload and try again.');
+      } catch (e) {
+        alert('⚠️ Failed to reset: ' + e);
+      }
+    }}
+  >
+    Reset mobile connect flags
+  </button>
+</div>
+
+
   // ---- スマホ自動検出 → WalletConnect モーダル自動オープン ----
   useEffect(() => {
     const flagKey = 'wc_auto_opened';

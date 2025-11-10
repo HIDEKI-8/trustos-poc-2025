@@ -9,6 +9,7 @@ export default function Home() {
   // wallet state
   const { address, isConnected } = useAccount();
   const {
+    connect,
     connectAsync,
     connectors,
     isPending,
@@ -42,11 +43,7 @@ export default function Home() {
     const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
 
     if (!isMobile) return; // PCでは自動起動しない
-    try {
-      if (sessionStorage.getItem(flagKey) === '1') return; // 1回だけ自動起動
-    } catch {
-      /* SSR回避 */
-    }
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(flagKey) === '1') return; // 1回だけ自動起動
     if (!walletConnect) return;
 
     (async () => {
@@ -58,16 +55,14 @@ export default function Home() {
         try {
           sessionStorage.setItem(flagKey, '1');
         } catch {
-          /* ignore */
+          // sessionStorage不可環境は無視
         }
       }
     })();
   }, [connectAsync, walletConnect]);
 
   // ---- ハンドラ ----
-  const doConnect = async (
-    kind: 'injected' | 'metaMask' | 'walletConnect'
-  ) => {
+  const doConnect = async (kind: 'injected' | 'metaMask' | 'walletConnect') => {
     try {
       setInfo('');
       const connector =
@@ -108,6 +103,7 @@ export default function Home() {
     try {
       setDaoState('loading');
       setInfo('');
+      // API ルートにアドレスとスコアを送信（存在しなくても安全な形）
       await fetch('/api/dao/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -169,27 +165,16 @@ export default function Home() {
         </h3>
 
         <div>
-          <button
-            style={injected ? btn : disabledBtn}
-            disabled={!injected || isPending}
-            onClick={() => doConnect('injected')}
-          >
+          {/* 常に押せるようにする（利用不可は doConnect 内で案内） */}
+          <button style={btn} onClick={() => doConnect('injected')}>
             Connect Injected
           </button>
 
-          <button
-            style={walletConnect ? btn : disabledBtn}
-            disabled={!walletConnect || isPending}
-            onClick={() => doConnect('walletConnect')}
-          >
+          <button style={btn} onClick={() => doConnect('walletConnect')}>
             Connect WalletConnect
           </button>
 
-          <button
-            style={metaMask ? btn : disabledBtn}
-            disabled={!metaMask || isPending}
-            onClick={() => doConnect('metaMask')}
-          >
+          <button style={btn} onClick={() => doConnect('metaMask')}>
             Connect MetaMask
           </button>
         </div>
@@ -236,9 +221,7 @@ export default function Home() {
 
       {/* DAO 承認 */}
       <section style={card}>
-        <h3 style={{ marginTop: 0, marginBottom: 12 }}>
-          DAO Approval (Mock)
-        </h3>
+        <h3 style={{ marginTop: 0, marginBottom: 12 }}>DAO Approval (Mock)</h3>
         <p style={{ marginTop: 0, opacity: 0.85 }}>
           Community votes to verify your trust score / DAO投票でスコア承認
         </p>

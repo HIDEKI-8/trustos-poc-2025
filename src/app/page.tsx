@@ -23,18 +23,37 @@ const [daoState, setDaoState] = useState<SectionState>('idle');
 const [info, setInfo] = useState<string>('');
 
 // どのコネクタが利用可能かをメモ化
-const injected = useMemo(
-() => connectors.find((c) => c.id === 'injected'),
-[connectors]
-);
-const metaMask = useMemo(
-() => connectors.find((c) => c.id === 'metaMask'),
-[connectors]
-);
-const walletConnect = useMemo(
-() => connectors.find((c) => c.id === 'walletConnect'),
-[connectors]
-);
+{/* Connect セクション */}
+<section style={card}>
+  <h3 style={{ marginTop: 0, marginBottom: 12 }}>
+    Connect your wallet / ウォレットを接続
+  </h3>
+
+  <div>
+    <button
+      style={btn}
+      disabled={isPending}
+      onClick={() => doConnect('injected')}
+    >
+      Connect Injected
+    </button>
+
+    <button
+      style={btn}
+      disabled={isPending}
+      onClick={() => doConnect('walletConnect')}
+    >
+      Connect WalletConnect
+    </button>
+
+    <button
+      style={btn}
+      disabled={isPending}
+      onClick={() => doConnect('metaMask')}
+    >
+      Connect MetaMask
+    </button>
+  </div>
 
 // ---- スマホ自動検出 → WalletConnect モーダル自動オープン ----
 useEffect(() => {

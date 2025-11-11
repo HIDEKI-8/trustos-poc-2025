@@ -17,6 +17,12 @@ export async function POST(req: Request) {
   // 使っていないなら一旦受けるだけ
   const _body = await req.json().catch(() => ({}));
 
+  export async function POST(request: Request) {
+  const _body = await request.json();
+  void _body; // ← これを追加
+
+  return new Response(JSON.stringify({ ok: true }), { status: 200 });
+}
   // モックの返却
   const data: DaoApproveResponse = {
     approved: true,

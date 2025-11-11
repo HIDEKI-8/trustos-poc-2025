@@ -1,13 +1,10 @@
 // src/app/page.tsx
-'use client';                     // ← 必ずファイルの一行目に置く
+'use client'; // 必ずファイルの一行目に置く
 
 export const dynamic = 'force-dynamic';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAccount, useConnect } from 'wagmi';
-
-// ...残りのコード...
-
 
 type SectionState = 'idle' | 'loading' | 'done' | 'error';
 

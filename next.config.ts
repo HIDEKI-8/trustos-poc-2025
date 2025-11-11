@@ -1,24 +1,45 @@
-import type { NextConfig } from 'next';
+// next.config.js (preview 用に一時的に unsafe-eval を許可するバージョン)
+const securityHeaders = [
+  {
+    key: 'Content-Security-Policy',
+    value:
+      "default-src 'self' https:; " +
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; " +
+      "style-src 'self' 'unsafe-inline' https:; " +
+      "img-src 'self' data: https:; " +
+      "connect-src 'self' https: wss:; " +
+      "frame-ancestors 'self';"
+  },
+  {
+    key: 'X-Content-Type-Options',
+    value: 'nosniff'
+  },
+  {
+    key: 'X-Frame-Options',
+    value: 'DENY'
+  }
+];
 
-/** @type {import('next').NextConfig} */
-const nextConfig: NextConfig = {
-  webpack: (config) => {
-    // サーバー環境では存在しないモジュールを無効化（MetaMask SDK周りの依存で落ちないように）
-    config.resolve.fallback = {
-      fs: false,
-      net: false,
-      tls: false,
-    };
+const nextConfig = {
+  reactStrictMode: true,
+  // 既存の export / other config があれば保持してください
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: securityHeaders
+      }
+    ];
+  },
+  // 本番での source map をオフにするオプション（下の恒久対策でも使います）
+  productionBrowserSourceMaps: false,
+  webpack: (config, { dev }) => {
+    // 本番で eval 系の devtool を無効化
+    if (!dev) {
+      config.devtool = false;
+    }
     return config;
-  },
-  typescript: {
-    // 型エラーでも本番ビルドを通す（暫定対応）
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    // ESLintエラーでもビルドを通す（暫定対応）
-    ignoreDuringBuilds: true,
-  },
+  }
 };
 
-export default nextConfig;
+module.exports = nextConfig;

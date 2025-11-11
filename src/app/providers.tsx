@@ -1,26 +1,21 @@
 'use client';
 
-import { WagmiProvider, createConfig, http } from 'wagmi';
-import { polygonAmoy } from 'wagmi/chains';
-import { injected, metaMask, walletConnect } from 'wagmi/connectors';
-import { ReactNode } from 'react';
+import { WagmiConfig, http, createConfig } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { polygon } from 'viem/chains';
 
-const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL!;
-const WC_PID  = process.env.NEXT_PUBLIC_WC_PROJECT_ID!;
+const queryClient = new QueryClient();
 
-export const config = createConfig({
-  chains: [polygonAmoy],
-  transports: {
-    [polygonAmoy.id]: http(RPC_URL),
-  },
-  connectors: [
-    injected({ shimDisconnect: true }),          // ブラウザ拡張 / MetaMaskアプリ内ブラウザ
-    metaMask({ dappMetadata: { name: 'TRUST OS PoC' } }), // MetaMask専用
-    walletConnect({ projectId: WC_PID }),       // Safari/Chrome→MetaMaskアプリ
-  ],
+const config = createConfig({
+  chains: [polygon],
+  transports: { [polygon.id]: http(process.env.NEXT_PUBLIC_RPC_URL ?? 'https://polygon-rpc.com') },
   ssr: true,
 });
 
-export default function Providers({ children }: { children: ReactNode }) {
-  return <WagmiProvider config={config}>{children}</WagmiProvider>;
+export default function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <WagmiConfig config={config}>{children}</WagmiConfig>
+    </QueryClientProvider>
+  );
 }

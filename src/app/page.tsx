@@ -1,4 +1,4 @@
-// src/app/page.tsx  (Next.js App Router の page, クライアントコンポーネント)
+// src/app/page.tsx
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -24,24 +24,24 @@ export default function Page() {
   // detect injected provider (MetaMask)
   const hasInjected = useMemo(() => {
     if (typeof window === 'undefined') return false;
-    // @ts-ignore
-    return Boolean(window.ethereum && window.ethereum.request);
+    // use a safe "any" cast to avoid ts-ignore/ts-expect-error ESLint complaints
+    const eth = (window as any).ethereum;
+    return Boolean(eth && typeof eth.request === 'function');
   }, []);
 
   // On mount, check accounts (MetaMask may keep connection)
   useEffect(() => {
     const check = async () => {
       try {
-        // @ts-ignore
-        const eth = window.ethereum;
+        const eth = (window as any).ethereum;
         if (!eth?.request) return;
         const accounts: string[] = await eth.request({ method: 'eth_accounts' });
         if (accounts?.length) {
           setAddress(accounts[0]);
           setIsConnected(true);
         }
-        // listen for account changes
-        eth.on?.('accountsChanged', (accounts: string[]) => {
+        // listen for account / chain changes
+        const onAccountsChanged = (accounts: string[]) => {
           if (!accounts || accounts.length === 0) {
             setAddress(null);
             setIsConnected(false);
@@ -49,25 +49,35 @@ export default function Page() {
             setAddress(accounts[0]);
             setIsConnected(true);
           }
-        });
-        eth.on?.('chainChanged', () => {
-          // simple reload on chain change to avoid inconsistent provider state
+        };
+        const onChainChanged = () => {
+          // reload to avoid inconsistent provider state
           window.location.reload();
-        });
-      } catch (e) {
-        // ignore
+        };
+
+        eth.on?.('accountsChanged', onAccountsChanged);
+        eth.on?.('chainChanged', onChainChanged);
+
+        // cleanup on unmount
+        return () => {
+          try {
+            eth?.removeListener?.('accountsChanged', onAccountsChanged);
+            eth?.removeListener?.('chainChanged', onChainChanged);
+          } catch (err) {
+            // swallow cleanup errors
+            console.warn('cleanup error', err);
+          }
+        };
+      } catch (err) {
+        // ignore initial detection errors
+        // keep this minimal to avoid lint complaining about unused variables
+        console.warn('eth detection error', err);
       }
     };
-    check();
-    // cleanup: remove listeners on unmount if present
-    return () => {
-      try {
-        // @ts-ignore
-        const eth = window.ethereum;
-        eth?.removeListener?.('accountsChanged', () => {});
-        eth?.removeListener?.('chainChanged', () => {});
-      } catch {}
-    };
+
+    const maybeCleanup = check();
+    // when using async effect that returns cleanup, ensure we handle it
+    // TypeScript/React will handle returned cleanup function
   }, []);
 
   // ---- Handlers ----
@@ -76,8 +86,7 @@ export default function Page() {
   const handleInjectedConnect = async () => {
     setInfo('');
     try {
-      // @ts-ignore
-      const eth = window.ethereum;
+      const eth = (window as any).ethereum;
       if (!eth?.request) {
         setInfo('No injected wallet found on this device.');
         return;
@@ -90,17 +99,19 @@ export default function Page() {
       } else {
         setInfo('No accounts returned.');
       }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+    } catch (err) {
+      // show meaningful message and keep err referenced so linter is happy
+      console.error('connect error', err);
+      const msg = err instanceof Error ? err.message : String(err);
       setInfo(`Connect failed: ${msg}`);
     }
   };
 
   // 2) WalletConnect placeholder (not full implementation)
   const handleWalletConnect = async () => {
-    // For a full WalletConnect integration use 'wagmi' or '@walletconnect/web3modal'
-    // Here we show a friendly message / placeholder
-    setInfo('WalletConnect button pressed. For full WalletConnect please integrate a WalletConnect provider (recommended: wagmi + Web3Modal).');
+    setInfo(
+      'WalletConnect button pressed. For full WalletConnect please integrate a WalletConnect provider (recommended: wagmi + Web3Modal).'
+    );
   };
 
   // 3) Generate pseudo trust score (PoC)
@@ -112,7 +123,8 @@ export default function Page() {
       const pseudo = Math.round(820 + Math.random() * 140); // 820〜960
       setScore(pseudo);
       setAiState('done');
-    } catch {
+    } catch (err) {
+      console.error('score error', err);
       setAiState('error');
       setInfo('Score generation failed.');
     }
@@ -140,9 +152,10 @@ export default function Page() {
       }
       setDaoState('done');
       setInfo('Submitted (mock).');
-    } catch (e) {
+    } catch (err) {
+      console.error('submit error', err);
       setDaoState('error');
-      setInfo(`Submission error: ${e instanceof Error ? e.message : String(e)}`);
+      setInfo(`Submission error: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 

@@ -1,55 +1,46 @@
-// next.config.js
-/**
- * 動作確認用: CSP に 'unsafe-eval' を一時的に追加します（セキュリティリスクあり）。
- * TypeScript のチェックで "implicit any" エラーが出ないよう JSDoc で型注釈しています。
- */
+// next.config.ts
+import type { NextConfig } from 'next';
+import type { Configuration as WebpackConfiguration } from 'webpack';
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+const securityHeaders = [
+  {
+    key: 'Content-Security-Policy',
+    value:
+      "default-src 'self' https:; " +
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; " + // 一時的に許可（動作確認用）
+      "style-src 'self' 'unsafe-inline' https:; " +
+      "img-src 'self' data: https:; " +
+      "connect-src 'self' https: wss:; " +
+      "frame-ancestors 'self';"
+  },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' }
+];
+
+const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // 本番での source map をオフに（eval source maps を除去する目的）
+  // 本番での source map をオフにして eval 系 source map の混入を抑える（恒久対策でも使う）
   productionBrowserSourceMaps: false,
 
   async headers() {
     return [
       {
         source: '/(.*)',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value:
-              "default-src 'self' https:; " +
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; " +
-              "style-src 'self' 'unsafe-inline' https:; " +
-              "img-src 'self' data: https:; " +
-              "connect-src 'self' https: wss:; " +
-              "frame-ancestors 'self';"
-          },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'DENY' }
-        ]
+        headers: securityHeaders
       }
     ];
   },
 
-  /**
-   * webpack フックの引数に対して暗黙 any を避けるため JSDoc で注釈しています。
-   *
-   * @param {import('webpack').Configuration} config
-   * @param {{ dev: boolean }} options
-   */
-  webpack: (
-    /** @type {import('webpack').Configuration} */ config,
-    /** @type {{ dev: boolean }} */ options
-  ) => {
+  // TypeScript の型注釈を付与（暗黙の any を避ける）
+  webpack: (config: WebpackConfiguration, options: { dev: boolean }) => {
     const { dev } = options;
     if (!dev) {
-      // 本番では devtool を無効にして eval 系 source map の混入を抑える
-      // @ts-ignore -- 一部の webpack 型環境で devtool の型が厳密な場合に備えて ignore
-      config.devtool = false;
+      // 一部の webpack 型定義に devtool が含まれない場合があるため any キャストしています
+      // これはビルド時の型回避であり、安全な本番化の際は削除してください
+      (config as any).devtool = false;
     }
     return config;
   }
 };
 
-module.exports = nextConfig;
+export default nextConfig;

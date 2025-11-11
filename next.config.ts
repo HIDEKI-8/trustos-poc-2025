@@ -1,43 +1,30 @@
-// next.config.ts (動作確認用・型依存を外したバージョン)
+// next.config.ts (プロジェクト直下)
 import type { NextConfig } from 'next';
 
-const securityHeaders = [
-  {
-    key: 'Content-Security-Policy',
-    value:
-      "default-src 'self' https:; " +
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; " + // 一時的許可（動作確認用）
-      "style-src 'self' 'unsafe-inline' https:; " +
-      "img-src 'self' data: https:; " +
-      "connect-src 'self' https: wss:; " +
-      "frame-ancestors 'self';"
-  },
-  { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'X-Frame-Options', value: 'DENY' }
-];
+const csp = [
+  "default-src 'self' https:;",
+  // 本番では 'unsafe-eval' を使わないのが望ましい（下記は例：ここでは外しています）
+  "script-src 'self' https:;",
+  "style-src 'self' 'unsafe-inline' https:;",
+  "img-src 'self' data: https:;",
+  "connect-src 'self' https: wss:;",
+  "frame-ancestors 'self';",
+].join(' ');
 
 const nextConfig: NextConfig = {
-  reactStrictMode: true,
-  productionBrowserSourceMaps: false,
-
   async headers() {
     return [
       {
-        source: '/(.*)',
-        headers: securityHeaders
-      }
+        source: '/(.*)', // 全ルートに適用
+        headers: [
+          { key: 'Content-Security-Policy', value: csp },
+          // 必要なら他のヘッダもここで追加可能
+          // { key: 'X-Frame-Options', value: 'DENY' },
+        ],
+      },
     ];
   },
-
-  // 型注釈を避けて any を使う（ビルド時のエラーを防ぐ）
-  webpack: (config: any, options: { dev: boolean }) => {
-    const { dev } = options;
-    if (!dev) {
-      // 本番では eval 系ソースマップを無効化
-      (config as any).devtool = false;
-    }
-    return config;
-  }
 };
 
 export default nextConfig;
+

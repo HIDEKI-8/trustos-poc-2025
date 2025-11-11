@@ -1,17 +1,19 @@
-// src/app/page.tsx
-'use client'; // 必ずファイルの一行目に置く
-
-export const dynamic = 'force-dynamic';
+// src/app/page.tsx  (Next.js App Router の page, クライアントコンポーネント)
+'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useAccount, useConnect } from 'wagmi';
 
 type SectionState = 'idle' | 'loading' | 'done' | 'error';
 
-export default function Home() {
+function shortAddress(addr: string | null) {
+  if (!addr) return '';
+  return addr.slice(0, 6) + '...' + addr.slice(-4);
+}
+
+export default function Page() {
   // wallet state
-  const { address, isConnected } = useAccount();
-  const { connectAsync, connectors, isPending, error: connectError } = useConnect();
+  const [address, setAddress] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   // UI states
   const [score, setScore] = useState<number | null>(null);
@@ -19,84 +21,139 @@ export default function Home() {
   const [daoState, setDaoState] = useState<SectionState>('idle');
   const [info, setInfo] = useState<string>('');
 
-  // どのコネクタが利用可能かをメモ化
-  const injected = useMemo(() => connectors.find((c) => c.id === 'injected'), [connectors]);
-  const metaMask = useMemo(() => connectors.find((c) => c.id === 'metaMask'), [connectors]);
-  const walletConnect = useMemo(() => connectors.find((c) => c.id === 'walletConnect'), [connectors]);
+  // detect injected provider (MetaMask)
+  const hasInjected = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    // @ts-ignore
+    return Boolean(window.ethereum && window.ethereum.request);
+  }, []);
 
-  // ---- スマホ自動検出 → WalletConnect モーダル自動オープン（1回だけ）----
+  // On mount, check accounts (MetaMask may keep connection)
   useEffect(() => {
-    const flagKey = 'wc_auto_opened';
-    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-    if (!isMobile) return;
-    if (sessionStorage.getItem(flagKey) === '1') return;
-    if (!walletConnect) return;
-
-    (async () => {
+    const check = async () => {
       try {
-        await connectAsync({ connector: walletConnect });
-      } catch {
-        // ユーザー拒否などは無視
-      } finally {
-        sessionStorage.setItem(flagKey, '1');
+        // @ts-ignore
+        const eth = window.ethereum;
+        if (!eth?.request) return;
+        const accounts: string[] = await eth.request({ method: 'eth_accounts' });
+        if (accounts?.length) {
+          setAddress(accounts[0]);
+          setIsConnected(true);
+        }
+        // listen for account changes
+        eth.on?.('accountsChanged', (accounts: string[]) => {
+          if (!accounts || accounts.length === 0) {
+            setAddress(null);
+            setIsConnected(false);
+          } else {
+            setAddress(accounts[0]);
+            setIsConnected(true);
+          }
+        });
+        eth.on?.('chainChanged', () => {
+          // simple reload on chain change to avoid inconsistent provider state
+          window.location.reload();
+        });
+      } catch (e) {
+        // ignore
       }
-    })();
-  }, [connectAsync, walletConnect]);
+    };
+    check();
+    // cleanup: remove listeners on unmount if present
+    return () => {
+      try {
+        // @ts-ignore
+        const eth = window.ethereum;
+        eth?.removeListener?.('accountsChanged', () => {});
+        eth?.removeListener?.('chainChanged', () => {});
+      } catch {}
+    };
+  }, []);
 
-  // ---- ハンドラ ----
-  const doConnect = async (kind: 'injected' | 'metaMask' | 'walletConnect') => {
+  // ---- Handlers ----
+
+  // 1) Injected / MetaMask connect (direct via window.ethereum)
+  const handleInjectedConnect = async () => {
+    setInfo('');
     try {
-      setInfo('');
-      const connector =
-        kind === 'injected' ? injected : kind === 'metaMask' ? metaMask : walletConnect;
-
-      if (!connector) {
-        setInfo(`Connector "${kind}" is not available on this device.`);
+      // @ts-ignore
+      const eth = window.ethereum;
+      if (!eth?.request) {
+        setInfo('No injected wallet found on this device.');
         return;
       }
-      await connectAsync({ connector });
+      const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' });
+      if (accounts?.length) {
+        setAddress(accounts[0]);
+        setIsConnected(true);
+        setInfo('Connected to injected wallet.');
+      } else {
+        setInfo('No accounts returned.');
+      }
     } catch (e) {
-      setInfo(e instanceof Error ? `Connect error: ${e.message}` : 'Connect failed.');
+      const msg = e instanceof Error ? e.message : String(e);
+      setInfo(`Connect failed: ${msg}`);
     }
   };
 
+  // 2) WalletConnect placeholder (not full implementation)
+  const handleWalletConnect = async () => {
+    // For a full WalletConnect integration use 'wagmi' or '@walletconnect/web3modal'
+    // Here we show a friendly message / placeholder
+    setInfo('WalletConnect button pressed. For full WalletConnect please integrate a WalletConnect provider (recommended: wagmi + Web3Modal).');
+  };
+
+  // 3) Generate pseudo trust score (PoC)
   const handleGenerateScore = async () => {
     try {
       setAiState('loading');
       setInfo('');
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 700));
       const pseudo = Math.round(820 + Math.random() * 140); // 820〜960
       setScore(pseudo);
       setAiState('done');
     } catch {
       setAiState('error');
+      setInfo('Score generation failed.');
     }
   };
 
+  // 4) Submit to DAO (mock POST)
   const handleSubmitDao = async () => {
+    if (!score) {
+      setInfo('先にスコアを生成してください。');
+      return;
+    }
+    setDaoState('loading');
+    setInfo('');
     try {
-      setDaoState('loading');
-      setInfo('');
-      await fetch('/api/dao/approve', {
+      const res = await fetch('/api/dao/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: address ?? null, score: score ?? null }),
+        body: JSON.stringify({ address: address ?? null, score }),
       });
+      if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        setInfo(`Submission failed: ${res.status} ${res.statusText} ${t}`);
+        setDaoState('error');
+        return;
+      }
       setDaoState('done');
-    } catch {
+      setInfo('Submitted (mock).');
+    } catch (e) {
       setDaoState('error');
+      setInfo(`Submission error: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
-  // ---- 簡易スタイル ----
+  // ---- Styles (simple inline) ----
   const card: React.CSSProperties = {
     padding: 18,
     borderRadius: 12,
-    border: '1px solid rgba(255,255,255,0.12)',
-    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.02)',
     margin: '16px auto',
-    maxWidth: 720,
+    maxWidth: 920,
   };
   const btn: React.CSSProperties = {
     background: '#27e1c1',
@@ -104,12 +161,16 @@ export default function Home() {
     color: '#0b1324',
     fontWeight: 700,
     borderRadius: 10,
-    padding: '14px 18px',
+    padding: '12px 16px',
     cursor: 'pointer',
     marginRight: 12,
     marginBottom: 12,
   };
-  const disabledBtn: React.CSSProperties = { ...btn, opacity: 0.5, cursor: 'not-allowed' };
+  const disabledBtn: React.CSSProperties = {
+    ...btn,
+    opacity: 0.45,
+    cursor: 'not-allowed',
+  };
 
   return (
     <main
@@ -121,7 +182,7 @@ export default function Home() {
         padding: '36px 18px 80px',
       }}
     >
-      <h1 style={{ textAlign: 'center', opacity: 0.9, letterSpacing: 1 }}>TRUST OS PoC</h1>
+      <h1 style={{ textAlign: 'center', opacity: 0.95, letterSpacing: 1 }}>TRUST OS PoC</h1>
 
       {/* Connect セクション */}
       <section style={card}>
@@ -129,43 +190,40 @@ export default function Home() {
 
         <div>
           <button
-            style={injected ? btn : disabledBtn}
-            disabled={!injected || isPending}
-            onClick={() => doConnect('injected')}
+            style={hasInjected ? btn : disabledBtn}
+            disabled={!hasInjected}
+            onClick={handleInjectedConnect}
           >
             Connect Injected
           </button>
 
-          <button
-            style={walletConnect ? btn : disabledBtn}
-            disabled={!walletConnect || isPending}
-            onClick={() => doConnect('walletConnect')}
-          >
+          <button style={btn} onClick={handleWalletConnect}>
             Connect WalletConnect
           </button>
 
           <button
-            style={metaMask ? btn : disabledBtn}
-            disabled={!metaMask || isPending}
-            onClick={() => doConnect('metaMask')}
+            style={hasInjected ? btn : disabledBtn}
+            disabled={!hasInjected}
+            onClick={handleInjectedConnect}
+            title="MetaMask は Injected ウォレットなので Injected を押してください"
           >
             Connect MetaMask
           </button>
         </div>
 
-        <div style={{ marginTop: 8, fontSize: 13, opacity: 0.8 }}>
+        <div style={{ marginTop: 8, fontSize: 13, opacity: 0.85 }}>
           {isConnected ? (
             <span>
-              Connected: <strong>{address}</strong>
+              Connected: <strong>{shortAddress(address)}</strong>
             </span>
           ) : (
             <span>Account status: disconnected</span>
           )}
         </div>
 
-        {(connectError || info) && (
-          <div style={{ color: '#ff6b6b', marginTop: 10, fontSize: 13 }}>
-            {connectError?.message || info}
+        {(info || !hasInjected) && (
+          <div style={{ color: !hasInjected ? '#ff6b6b' : '#ffd27f', marginTop: 10, fontSize: 13 }}>
+            {hasInjected ? info || '' : 'No injected wallet detected. Install MetaMask or use WalletConnect.'}
           </div>
         )}
       </section>
@@ -174,11 +232,7 @@ export default function Home() {
       <section style={card}>
         <h3 style={{ marginTop: 0, marginBottom: 12 }}>AI Analysis → Trust Score</h3>
 
-        <button
-          style={aiState === 'loading' ? disabledBtn : btn}
-          disabled={aiState === 'loading'}
-          onClick={handleGenerateScore}
-        >
+        <button style={aiState === 'loading' ? disabledBtn : btn} disabled={aiState === 'loading'} onClick={handleGenerateScore}>
           {aiState === 'loading' ? 'Generating…' : 'Generate Trust Score'}
         </button>
 
@@ -198,22 +252,14 @@ export default function Home() {
           Community votes to verify your trust score / DAO投票でスコア承認
         </p>
 
-        <button
-          style={daoState === 'loading' || score === null ? disabledBtn : btn}
-          disabled={daoState === 'loading' || score === null}
-          onClick={handleSubmitDao}
-        >
+        <button style={daoState === 'loading' || score === null ? disabledBtn : btn} disabled={daoState === 'loading' || score === null} onClick={handleSubmitDao}>
           {daoState === 'loading' ? 'Submitting…' : 'Submit to DAO / 承認申請'}
         </button>
 
         <div style={{ marginTop: 10, fontSize: 14 }}>
           {daoState === 'done' && <span>Submitted. (Mock) スコア承認申請を送信しました。</span>}
-          {daoState === 'error' && (
-            <span style={{ color: '#ff6b6b' }}>Submission failed. もう一度お試しください。</span>
-          )}
-          {score === null && (
-            <span style={{ opacity: 0.7 }}>※ 先に「Generate Trust Score」でスコアを作成してください。</span>
-          )}
+          {daoState === 'error' && <span style={{ color: '#ff6b6b' }}>Submission failed. もう一度お試しください。</span>}
+          {score === null && <span style={{ opacity: 0.7 }}>※ 先に「Generate Trust Score」でスコアを作成してください。</span>}
         </div>
       </section>
     </main>

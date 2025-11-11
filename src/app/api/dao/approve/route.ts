@@ -1,34 +1,17 @@
 // src/app/api/dao/approve/route.ts
-import { NextResponse } from 'next/server';
-
-type DaoVote = {
-  yes: number;
-  no: number;
-  quorum: number;
-};
-
-type DaoApproveResponse = {
-  approved: boolean;
-  txHash: string;
-  votes: DaoVote;
-};
-
-export async function POST(req: Request) {
-  // 使っていないなら一旦受けるだけ
-  const _body = await req.json().catch(() => ({}));
-
-  export async function POST(request: Request) {
-  const _body = await request.json();
-  void _body; // ← これを追加
-
-  return new Response(JSON.stringify({ ok: true }), { status: 200 });
-}
-  // モックの返却
-  const data: DaoApproveResponse = {
-    approved: true,
-    txHash: '0x' + 'deadbeef'.repeat(8),
-    votes: { yes: 42, no: 5, quorum: 30 },
-  };
-
-  return NextResponse.json(data);
+export async function POST(request: Request) {
+  try {
+    // 受け取った JSON を安全に取得（存在しなければ空オブジェクト）
+    const body = await request.json().catch(() => ({}));
+    // ここで本来の処理を追加（DB保存等）。今はモックで受け取った内容を返す
+    return new Response(JSON.stringify({ ok: true, received: body }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ ok: false, error: String(err ?? 'unknown error') }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
 }

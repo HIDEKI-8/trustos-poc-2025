@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -8,13 +9,7 @@ type SectionState = 'idle' | 'loading' | 'done' | 'error';
 export default function Home() {
   // wallet state
   const { address, isConnected } = useAccount();
-  const {
-    connect,
-    connectAsync,
-    connectors,
-    isPending,
-    error: connectError,
-  } = useConnect();
+  const { connectAsync, connectors, isPending, error: connectError } = useConnect();
 
   // UI states
   const [score, setScore] = useState<number | null>(null);
@@ -23,115 +18,36 @@ export default function Home() {
   const [info, setInfo] = useState<string>('');
 
   // どのコネクタが利用可能かをメモ化
-  const injected = useMemo(
-    () => connectors.find((c) => c.id === 'injected'),
-    [connectors]
-  );
-  const metaMask = useMemo(
-    () => connectors.find((c) => c.id === 'metaMask'),
-    [connectors]
-  );
-  const walletConnect = useMemo(
-    () => connectors.find((c) => c.id === 'walletConnect'),
-    [connectors]
-  );
-<div style={{ marginTop: 12, fontSize: 12, opacity: 0.8 }}>
-  <div>Debug / Detected connectors:</div>
-  <ul style={{ marginTop: 6 }}>
-    {connectors.map((c) => (
-      <li key={c.id}>
-        id: <b>{c.id}</b>, name: {c.name}, ready: {String((c as any).ready)}
-      </li>
-    ))}
-  </ul>
-</div>
+  const injected = useMemo(() => connectors.find((c) => c.id === 'injected'), [connectors]);
+  const metaMask = useMemo(() => connectors.find((c) => c.id === 'metaMask'), [connectors]);
+  const walletConnect = useMemo(() => connectors.find((c) => c.id === 'walletConnect'), [connectors]);
 
-  {/* Reset sessionStorage for mobile Safari */}
-<div style={{ marginTop: 8 }}>
-  <button
-    style={{
-      background: 'transparent',
-      border: '1px dashed rgba(255,255,255,.4)',
-      color: 'rgba(255,255,255,.8)',
-      padding: '8px 12px',
-      borderRadius: 8,
-      cursor: 'pointer',
-    }}
-    onClick={() => {
-      try {
-        sessionStorage.removeItem('wc_auto_opened');
-        localStorage.removeItem('wc_auto_opened');
-        alert('✅ Reset complete! Please reload and try again.');
-      } catch (e) {
-        alert('⚠️ Failed to reset: ' + e);
-      }
-    }}
-  >
-    Reset mobile connect flags
-  </button>
-</div>
-
-
-  // ---- スマホ自動検出 → WalletConnect モーダル自動オープン ----
+  // ---- スマホ自動検出 → WalletConnect モーダル自動オープン（1回だけ）----
   useEffect(() => {
     const flagKey = 'wc_auto_opened';
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-
-    if (!isMobile) return; // PCでは自動起動しない
-    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(flagKey) === '1') return; // 1回だけ自動起動
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+    if (!isMobile) return;
+    if (sessionStorage.getItem(flagKey) === '1') return;
     if (!walletConnect) return;
 
     (async () => {
       try {
         await connectAsync({ connector: walletConnect });
       } catch {
-        // ユーザー拒否等は無視
+        // ユーザー拒否などは無視
       } finally {
-        try {
-          sessionStorage.setItem(flagKey, '1');
-        } catch {
-          // sessionStorage不可環境は無視
-        }
+        sessionStorage.setItem(flagKey, '1');
       }
     })();
   }, [connectAsync, walletConnect]);
-  
-  const isMobile =
-  typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-const isMetaMaskApp =
-  typeof navigator !== 'undefined' && navigator.userAgent.includes('MetaMaskMobile');
-
-<div>
-  {!isMobile && injected && (
-    <button style={btn} disabled={isPending} onClick={() => doConnect('injected')}>
-      Connect Injected
-    </button>
-  )}
-
-  {isMobile && !isMetaMaskApp && walletConnect && (
-    <button style={btn} disabled={isPending} onClick={() => doConnect('walletConnect')}>
-      Connect WalletConnect
-    </button>
-  )}
-
-  {isMetaMaskApp && metaMask && (
-    <button style={btn} disabled={isPending} onClick={() => doConnect('metaMask')}>
-      Connect MetaMask
-    </button>
-  )}
-</div>
 
   // ---- ハンドラ ----
   const doConnect = async (kind: 'injected' | 'metaMask' | 'walletConnect') => {
     try {
       setInfo('');
       const connector =
-        kind === 'injected'
-          ? injected
-          : kind === 'metaMask'
-          ? metaMask
-          : walletConnect;
+        kind === 'injected' ? injected : kind === 'metaMask' ? metaMask : walletConnect;
 
       if (!connector) {
         setInfo(`Connector "${kind}" is not available on this device.`);
@@ -139,10 +55,7 @@ const isMetaMaskApp =
       }
       await connectAsync({ connector });
     } catch (e) {
-      // 表示に十分な簡易エラー文面
-      setInfo(
-        e instanceof Error ? `Connect error: ${e.message}` : 'Connect failed.'
-      );
+      setInfo(e instanceof Error ? `Connect error: ${e.message}` : 'Connect failed.');
     }
   };
 
@@ -150,9 +63,8 @@ const isMetaMaskApp =
     try {
       setAiState('loading');
       setInfo('');
-      // PoC 用のダミー計算（820〜960）
       await new Promise((r) => setTimeout(r, 800));
-      const pseudo = Math.round(820 + Math.random() * 140);
+      const pseudo = Math.round(820 + Math.random() * 140); // 820〜960
       setScore(pseudo);
       setAiState('done');
     } catch {
@@ -164,14 +76,10 @@ const isMetaMaskApp =
     try {
       setDaoState('loading');
       setInfo('');
-      // API ルートにアドレスとスコアを送信（存在しなくても安全な形）
       await fetch('/api/dao/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address: address ?? null,
-          score: score ?? null,
-        }),
+        body: JSON.stringify({ address: address ?? null, score: score ?? null }),
       });
       setDaoState('done');
     } catch {
@@ -199,11 +107,7 @@ const isMetaMaskApp =
     marginRight: 12,
     marginBottom: 12,
   };
-  const disabledBtn: React.CSSProperties = {
-    ...btn,
-    opacity: 0.5,
-    cursor: 'not-allowed',
-  };
+  const disabledBtn: React.CSSProperties = { ...btn, opacity: 0.5, cursor: 'not-allowed' };
 
   return (
     <main
@@ -215,27 +119,34 @@ const isMetaMaskApp =
         padding: '36px 18px 80px',
       }}
     >
-      <h1 style={{ textAlign: 'center', opacity: 0.9, letterSpacing: 1 }}>
-        TRUST OS PoC
-      </h1>
+      <h1 style={{ textAlign: 'center', opacity: 0.9, letterSpacing: 1 }}>TRUST OS PoC</h1>
 
       {/* Connect セクション */}
       <section style={card}>
-        <h3 style={{ marginTop: 0, marginBottom: 12 }}>
-          Connect your wallet / ウォレットを接続
-        </h3>
+        <h3 style={{ marginTop: 0, marginBottom: 12 }}>Connect your wallet / ウォレットを接続</h3>
 
         <div>
-          {/* 常に押せるようにする（利用不可は doConnect 内で案内） */}
-          <button style={btn} onClick={() => doConnect('injected')}>
+          <button
+            style={injected ? btn : disabledBtn}
+            disabled={!injected || isPending}
+            onClick={() => doConnect('injected')}
+          >
             Connect Injected
           </button>
 
-          <button style={btn} onClick={() => doConnect('walletConnect')}>
+          <button
+            style={walletConnect ? btn : disabledBtn}
+            disabled={!walletConnect || isPending}
+            onClick={() => doConnect('walletConnect')}
+          >
             Connect WalletConnect
           </button>
 
-          <button style={btn} onClick={() => doConnect('metaMask')}>
+          <button
+            style={metaMask ? btn : disabledBtn}
+            disabled={!metaMask || isPending}
+            onClick={() => doConnect('metaMask')}
+          >
             Connect MetaMask
           </button>
         </div>
@@ -259,9 +170,7 @@ const isMetaMaskApp =
 
       {/* AI スコア */}
       <section style={card}>
-        <h3 style={{ marginTop: 0, marginBottom: 12 }}>
-          AI Analysis → Trust Score
-        </h3>
+        <h3 style={{ marginTop: 0, marginBottom: 12 }}>AI Analysis → Trust Score</h3>
 
         <button
           style={aiState === 'loading' ? disabledBtn : btn}
@@ -296,18 +205,12 @@ const isMetaMaskApp =
         </button>
 
         <div style={{ marginTop: 10, fontSize: 14 }}>
-          {daoState === 'done' && (
-            <span>Submitted. (Mock) スコア承認申請を送信しました。</span>
-          )}
+          {daoState === 'done' && <span>Submitted. (Mock) スコア承認申請を送信しました。</span>}
           {daoState === 'error' && (
-            <span style={{ color: '#ff6b6b' }}>
-              Submission failed. もう一度お試しください。
-            </span>
+            <span style={{ color: '#ff6b6b' }}>Submission failed. もう一度お試しください。</span>
           )}
           {score === null && (
-            <span style={{ opacity: 0.7 }}>
-              ※ 先に「Generate Trust Score」でスコアを作成してください。
-            </span>
+            <span style={{ opacity: 0.7 }}>※ 先に「Generate Trust Score」でスコアを作成してください。</span>
           )}
         </div>
       </section>

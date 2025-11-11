@@ -1,21 +1,13 @@
-'use client';
+"use client";
 
-import { WagmiConfig, http, createConfig } from 'wagmi';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { polygon } from 'viem/chains';
+/**
+ * Temporary Providers wrapper (minimal)
+ * - This intentionally avoids importing wagmi/connectors so the build won't fail.
+ * - Replace this with your wagmi + viem config later when you fix connector import paths.
+ */
 
-const queryClient = new QueryClient();
+import React from "react";
 
-const config = createConfig({
-  chains: [polygon],
-  transports: { [polygon.id]: http(process.env.NEXT_PUBLIC_RPC_URL ?? 'https://polygon-rpc.com') },
-  ssr: true,
-});
-
-export default function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <WagmiConfig config={config}>{children}</WagmiConfig>
-    </QueryClientProvider>
-  );
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
 }

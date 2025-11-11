@@ -35,6 +35,16 @@ export default function Home() {
     () => connectors.find((c) => c.id === 'walletConnect'),
     [connectors]
   );
+<div style={{ marginTop: 12, fontSize: 12, opacity: 0.8 }}>
+  <div>Debug / Detected connectors:</div>
+  <ul style={{ marginTop: 6 }}>
+    {connectors.map((c) => (
+      <li key={c.id}>
+        id: <b>{c.id}</b>, name: {c.name}, ready: {String((c as any).ready)}
+      </li>
+    ))}
+  </ul>
+</div>
 
   {/* Reset sessionStorage for mobile Safari */}
 <div style={{ marginTop: 8 }}>
@@ -66,7 +76,7 @@ export default function Home() {
   useEffect(() => {
     const flagKey = 'wc_auto_opened';
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
 
     if (!isMobile) return; // PCでは自動起動しない
     if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(flagKey) === '1') return; // 1回だけ自動起動
@@ -86,6 +96,31 @@ export default function Home() {
       }
     })();
   }, [connectAsync, walletConnect]);
+  
+  const isMobile =
+  typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const isMetaMaskApp =
+  typeof navigator !== 'undefined' && navigator.userAgent.includes('MetaMaskMobile');
+
+<div>
+  {!isMobile && injected && (
+    <button style={btn} disabled={isPending} onClick={() => doConnect('injected')}>
+      Connect Injected
+    </button>
+  )}
+
+  {isMobile && !isMetaMaskApp && walletConnect && (
+    <button style={btn} disabled={isPending} onClick={() => doConnect('walletConnect')}>
+      Connect WalletConnect
+    </button>
+  )}
+
+  {isMetaMaskApp && metaMask && (
+    <button style={btn} disabled={isPending} onClick={() => doConnect('metaMask')}>
+      Connect MetaMask
+    </button>
+  )}
+</div>
 
   // ---- ハンドラ ----
   const doConnect = async (kind: 'injected' | 'metaMask' | 'walletConnect') => {

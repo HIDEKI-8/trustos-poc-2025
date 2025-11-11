@@ -1,29 +1,26 @@
 'use client';
 
-import { WagmiConfig, http, createConfig } from 'wagmi';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { polygonAmoy } from 'viem/chains'; // ← Amoy テストネット用
-import { createPublicClient } from 'viem';
+import { WagmiProvider, createConfig, http } from 'wagmi';
+import { polygonAmoy } from 'wagmi/chains';
+import { injected, metaMask, walletConnect } from 'wagmi/connectors';
+import { ReactNode } from 'react';
 
-// QueryClient の初期化
-const queryClient = new QueryClient();
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL!;
+const WC_PID  = process.env.NEXT_PUBLIC_WC_PROJECT_ID!;
 
-// wagmi 設定
-const config = createConfig({
-chains: [polygonAmoy],
-transports: {
-[polygonAmoy.id]: http(
-process.env.NEXT_PUBLIC_RPC_URL || 'https://rpc-amoy.polygon.technology'
-),
-},
-ssr: true,
+export const config = createConfig({
+  chains: [polygonAmoy],
+  transports: {
+    [polygonAmoy.id]: http(RPC_URL),
+  },
+  connectors: [
+    injected({ shimDisconnect: true }),          // ブラウザ拡張 / MetaMaskアプリ内ブラウザ
+    metaMask({ dappMetadata: { name: 'TRUST OS PoC' } }), // MetaMask専用
+    walletConnect({ projectId: WC_PID }),       // Safari/Chrome→MetaMaskアプリ
+  ],
+  ssr: true,
 });
 
-// Providers コンポーネント
-export default function Providers({ children }: { children: React.ReactNode }) {
-return (
-<QueryClientProvider client={queryClient}>
-<WagmiConfig config={config}>{children}</WagmiConfig>
-</QueryClientProvider>
-);
+export default function Providers({ children }: { children: ReactNode }) {
+  return <WagmiProvider config={config}>{children}</WagmiProvider>;
 }

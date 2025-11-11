@@ -1,13 +1,12 @@
-// next.config.ts
+// next.config.ts (動作確認用・型依存を外したバージョン)
 import type { NextConfig } from 'next';
-import type { Configuration as WebpackConfiguration } from 'webpack';
 
 const securityHeaders = [
   {
     key: 'Content-Security-Policy',
     value:
       "default-src 'self' https:; " +
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; " + // 一時的に許可（動作確認用）
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; " + // 一時的許可（動作確認用）
       "style-src 'self' 'unsafe-inline' https:; " +
       "img-src 'self' data: https:; " +
       "connect-src 'self' https: wss:; " +
@@ -19,7 +18,6 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // 本番での source map をオフにして eval 系 source map の混入を抑える（恒久対策でも使う）
   productionBrowserSourceMaps: false,
 
   async headers() {
@@ -31,12 +29,11 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // TypeScript の型注釈を付与（暗黙の any を避ける）
-  webpack: (config: WebpackConfiguration, options: { dev: boolean }) => {
+  // 型注釈を避けて any を使う（ビルド時のエラーを防ぐ）
+  webpack: (config: any, options: { dev: boolean }) => {
     const { dev } = options;
     if (!dev) {
-      // 一部の webpack 型定義に devtool が含まれない場合があるため any キャストしています
-      // これはビルド時の型回避であり、安全な本番化の際は削除してください
+      // 本番では eval 系ソースマップを無効化
       (config as any).devtool = false;
     }
     return config;

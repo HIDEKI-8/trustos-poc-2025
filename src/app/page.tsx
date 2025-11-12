@@ -33,6 +33,15 @@ function useInterval(callback: () => void, delay: number | null) {
   }, [delay]);
 }
 
+<div style={{ marginTop: 30, padding: 10, background: "#111", color: "#0f0", fontSize: 12 }}>
+  <div>DEBUG LOG:</div>
+  <pre id="debug-log"></pre>
+</div>
+
+debugLog("userAgent:", navigator.userAgent);
+debugLog("window.ethereum:", !!window.ethereum);
+
+
 export default function Home() {
   // wallet state (minimal, using window.ethereum)
   const [address, setAddress] = useState<string | null>(null);
@@ -58,7 +67,12 @@ export default function Home() {
     } catch {
       return 'Unknown error';
     }
+    <div style={{ marginTop: 30, padding: 10, background: "#111", color: "#0f0", fontSize: 12 }}>
+  <div>DEBUG LOG:</div>
+  <pre id="debug-log"></pre>
+</div>
   };
+
 
   // MetaMask connect (typed via global Window.ethereum declaration)
   const connectMetaMask = async (): Promise<void> => {
@@ -184,10 +198,20 @@ export default function Home() {
             Connect Injected / MetaMask
           </button>
 
-          <button style={btn} onClick={() => doConnect('walletConnect')}>
-            Connect WalletConnect (not wired here)
-          </button>
-        </div>
+          import { WalletConnectConnector } from "wagmi/connectors/walletConnect";
+
+const connectWalletConnect = async () => {
+  try {
+    const connector = new WalletConnectConnector({
+      options: { qrcode: true },
+    });
+    const wallet = await connectAsync({ connector });
+    debugLog("WalletConnect connected:", wallet);
+  } catch (err) {
+    debugLog("WalletConnect error:", err);
+  }
+};
+
 
         <div style={{ marginTop: 8, fontSize: 13, opacity: 0.8 }}>
           {isConnected ? (

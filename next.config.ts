@@ -1,25 +1,17 @@
-// next.config.ts (プロジェクト直下)
+// next.config.ts（プロジェクトルート）
 import type { NextConfig } from 'next';
 
-const csp = [
-  "default-src 'self' https:;",
-  // 本番では 'unsafe-eval' を使わないのが望ましい（下記は例：ここでは外しています）
-  "script-src 'self' https:;",
-  "style-src 'self' 'unsafe-inline' https:;",
-  "img-src 'self' data: https:;",
-  "connect-src 'self' https: wss:;",
-  "frame-ancestors 'self';",
-].join(' ');
+const cspValue = "default-src 'self' https:; script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; connect-src 'self' https: wss:; frame-ancestors 'self';";
 
 const nextConfig: NextConfig = {
+  // その他既存設定を残す
   async headers() {
     return [
       {
-        source: '/(.*)', // 全ルートに適用
+        source: '/(.*)',
         headers: [
-          { key: 'Content-Security-Policy', value: csp },
-          // 必要なら他のヘッダもここで追加可能
-          // { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: cspValue },
+          // 必要なら他のヘッダーもここに追加
         ],
       },
     ];
@@ -27,4 +19,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-

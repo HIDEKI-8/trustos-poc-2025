@@ -16,5 +16,4 @@ export function middleware(req: NextRequest) {
   res.headers.set('Content-Security-Policy', csp);
   return res;
 }
-
 export const config = { matcher: ['/:path*'] };

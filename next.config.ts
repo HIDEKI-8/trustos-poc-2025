@@ -1,4 +1,6 @@
 // next.config.ts（プロジェクトルート）
+// page.tsx の先頭（もし無ければ）
+import React from 'react';
 import type { NextConfig } from 'next';
 
 const cspValue = "default-src 'self' https:; script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; connect-src 'self' https: wss:; frame-ancestors 'self';";

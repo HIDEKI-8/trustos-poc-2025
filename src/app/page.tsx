@@ -5,7 +5,6 @@ import React, { useEffect, useRef, useState } from 'react';
 
 /**
  * 型安全に window.ethereum を扱うための宣言（any を直接使わない）
- * request の戻りは unknown にして安全に扱います。
  */
 declare global {
   interface Window {
@@ -33,14 +32,22 @@ function useInterval(callback: () => void, delay: number | null) {
   }, [delay]);
 }
 
-<div style={{ marginTop: 30, padding: 10, background: "#111", color: "#0f0", fontSize: 12 }}>
-  <div>DEBUG LOG:</div>
-  <pre id="debug-log"></pre>
-</div>
-
-debugLog("userAgent:", navigator.userAgent);
-debugLog("window.ethereum:", !!window.ethereum);
-
+// 簡易デバッグログ（DOM に吐く — サーバーサイドでは何もしない）
+function debugLog(...args: unknown[]) {
+  try {
+    const el = typeof document !== 'undefined' ? document.getElementById('debug-log') : null;
+    const txt = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+    if (el) {
+      el.textContent += txt + '\n';
+    } else {
+      // サーバー側 / テスト環境ではコンソール
+      // eslint-disable-next-line no-console
+      console.log(...args);
+    }
+  } catch {
+    // ignore
+  }
+}
 
 export default function Home() {
   // wallet state (minimal, using window.ethereum)
@@ -56,6 +63,7 @@ export default function Home() {
   // simple heartbeat (example of useInterval usage)
   useInterval(() => {
     // placeholder for periodic checks if needed
+    // debugLog('heartbeat', new Date().toISOString());
   }, 2000);
 
   // error -> string safe helper
@@ -67,12 +75,7 @@ export default function Home() {
     } catch {
       return 'Unknown error';
     }
-    <div style={{ marginTop: 30, padding: 10, background: "#111", color: "#0f0", fontSize: 12 }}>
-  <div>DEBUG LOG:</div>
-  <pre id="debug-log"></pre>
-</div>
   };
-
 
   // MetaMask connect (typed via global Window.ethereum declaration)
   const connectMetaMask = async (): Promise<void> => {
@@ -95,18 +98,22 @@ export default function Home() {
         setIsConnected(true);
         setAddress(acct);
         setInfo('Connected to MetaMask');
+        debugLog('Connected accounts:', acct);
       } else {
         // some wallets return a single string
         if (typeof accountsRaw === 'string' && accountsRaw.length > 0) {
           setIsConnected(true);
           setAddress(accountsRaw);
           setInfo('Connected to MetaMask');
+          debugLog('Connected accounts:', accountsRaw);
         } else {
           setInfo('No accounts returned by wallet.');
         }
       }
     } catch (err: unknown) {
-      setInfo(errToString(err) || 'Connection failed');
+      const m = errToString(err);
+      setInfo(m);
+      debugLog('connectMetaMask error:', m);
     }
   };
 
@@ -177,16 +184,26 @@ export default function Home() {
   };
   const disabledBtn: React.CSSProperties = { ...btn, opacity: 0.5, cursor: 'not-allowed' };
 
+  // client-only debug info on mount
+  useEffect(() => {
+    debugLog('userAgent:', typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown');
+    debugLog('window.ethereum exists:', typeof window !== 'undefined' && !!window.ethereum);
+  }, []);
+
   return (
     <main
       style={{
         minHeight: '100svh',
         color: '#e7f6ff',
-        background:
-          'radial-gradient(1200px 600px at 50% -10%, #243d5a 0%, #0b1324 60%, #0b1324 100%)',
+        background: 'radial-gradient(1200px 600px at 50% -10%, #243d5a 0%, #0b1324 60%, #0b1324 100%)',
         padding: '36px 18px 80px',
       }}
     >
+      <div style={{ marginTop: 30, padding: 10, background: '#111', color: '#0f0', fontSize: 12 }}>
+        <div>DEBUG LOG:</div>
+        <pre id="debug-log" style={{ whiteSpace: 'pre-wrap' }} />
+      </div>
+
       <h1 style={{ textAlign: 'center', opacity: 0.95, letterSpacing: 1 }}>TRUST OS PoC</h1>
 
       {/* Connect セクション */}
@@ -197,21 +214,7 @@ export default function Home() {
           <button style={btn} onClick={() => doConnect('injected')}>
             Connect Injected / MetaMask
           </button>
-
-          import { WalletConnectConnector } from "wagmi/connectors/walletConnect";
-
-const connectWalletConnect = async () => {
-  try {
-    const connector = new WalletConnectConnector({
-      options: { qrcode: true },
-    });
-    const wallet = await connectAsync({ connector });
-    debugLog("WalletConnect connected:", wallet);
-  } catch (err) {
-    debugLog("WalletConnect error:", err);
-  }
-};
-
+        </div>
 
         <div style={{ marginTop: 8, fontSize: 13, opacity: 0.8 }}>
           {isConnected ? (
@@ -253,9 +256,7 @@ const connectWalletConnect = async () => {
       {/* DAO 承認 */}
       <section style={card}>
         <h3 style={{ marginTop: 0, marginBottom: 12 }}>DAO Approval (Mock)</h3>
-        <p style={{ marginTop: 0, opacity: 0.85 }}>
-          Community votes to verify your trust score / DAO投票でスコア承認（モック）
-        </p>
+        <p style={{ marginTop: 0, opacity: 0.85 }}>Community votes to verify your trust score / DAO投票でスコア承認（モック）</p>
 
         <button style={daoState === 'loading' || score === null ? disabledBtn : btn} disabled={daoState === 'loading' || score === null} onClick={handleSubmitDao}>
           {daoState === 'loading' ? 'Submitting…' : 'Submit to DAO / 承認申請'}
